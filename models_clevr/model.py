@@ -8,6 +8,7 @@ import numpy as np
 from . import ops as ops
 from .config import cfg
 from .lcgn import LCGN
+from .gnn import GNN
 from .input_unit import Encoder
 from .output_unit import Classifier, BboxRegression
 
@@ -58,7 +59,8 @@ class LCGNnet(nn.Module):
         self.num_vocab = num_vocab
         self.num_choices = num_choices
         self.encoder = Encoder(embeddingsInit)
-        self.lcgn = LCGN()
+        self.gnn = GNN()
+        #self.lcgn = LCGN()
         if cfg.BUILD_VQA:
             self.single_hop = SingleHop()
             self.classifier = Classifier(num_choices)
@@ -89,12 +91,15 @@ class LCGNnet(nn.Module):
         questionCntxWords, vecQuestions = self.encoder(
             questionIndices, questionLengths)
 
+        x_out = self.gnn(images=images, 
+            batch_size=batchSize, entity_num=imagesObjectNum)
+        """
         # LCGN
         x_out = self.lcgn(
             images=images, q_encoding=vecQuestions,
             lstm_outputs=questionCntxWords, batch_size=batchSize,
             q_length=questionLengths, entity_num=imagesObjectNum)
-
+        """
         # Single-Hop
         loss = torch.tensor(0., device=x_out.device)
         res = {}
