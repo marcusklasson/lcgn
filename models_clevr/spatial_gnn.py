@@ -15,7 +15,7 @@ class SpatialGNN(nn.Module):
         self.build_propagate_message()
 
         adj_matrix = build_adjacency_matrix(cfg.W_FEAT, cfg.H_FEAT) # defines neighbors in graph
-        self.adj = torch.from_numpy(adj_matrix.astype(np.int64)).cuda()
+        self.adj = torch.from_numpy(adj_matrix.astype(np.float32)).cuda()
 
 
     def build_propagate_message(self):
