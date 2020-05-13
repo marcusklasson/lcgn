@@ -24,10 +24,16 @@ class SpatialGNN(nn.Module):
 
     def forward(self, images, batch_size, entity_num):
         x_loc = self.loc_init(images)
-        support = self.W(x_loc)
-        x_out = torch.matmul(self.adj, support)
-        #x_out = self.propagate_message(x_loc, entity_num)
+        for t in range(cfg.MSG_ITER_NUM):
+            x_loc_new = self.propagate_message(x_loc)
+            x_loc = x_loc_new
+        x_out = x_loc_new
         return x_out
+
+    def propagate_message(self, x_loc):
+        support = self.W(x_loc)
+        x_loc_new = torch.matmul(self.adj, support)
+        return x_loc_new
 
     def loc_init(self, images):
         x_loc = self.initKB(images)
