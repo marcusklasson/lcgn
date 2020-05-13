@@ -9,6 +9,7 @@ from . import ops as ops
 from .config import cfg
 from .lcgn import LCGN
 from .gnn import GNN
+from .gat import GAT
 from .input_unit import Encoder
 from .output_unit import Classifier, BboxRegression
 
@@ -59,7 +60,8 @@ class LCGNnet(nn.Module):
         self.num_vocab = num_vocab
         self.num_choices = num_choices
         self.encoder = Encoder(embeddingsInit)
-        self.gnn = GNN()
+        self.gat = GAT()
+	#self.gnn = GNN()
         #self.lcgn = LCGN()
         if cfg.BUILD_VQA:
             self.single_hop = SingleHop()
@@ -90,9 +92,14 @@ class LCGNnet(nn.Module):
         # LSTM
         questionCntxWords, vecQuestions = self.encoder(
             questionIndices, questionLengths)
-
+	
+        # Graph Attention Network
+        x_out = self.gat(images=images, batch_size=batchSize, entity_num=imagesObjectNum)
+        """
+        # Simple GNN with self-attention
         x_out = self.gnn(images=images, 
             batch_size=batchSize, entity_num=imagesObjectNum)
+        """
         """
         # LCGN
         x_out = self.lcgn(
