@@ -29,6 +29,8 @@ class SpatialGNN(nn.Module):
             cmd = self.extract_textual_command(
                     q_encoding, lstm_outputs, q_length, t)
             x_loc_new = self.propagate_message(x_loc, cmd)
+            if t < cfg.MSG_ITER_NUM-1:
+                x_loc_new = F.elu(x_loc_new)
             x_loc = x_loc_new
         x_out = x_loc_new
         return x_out
