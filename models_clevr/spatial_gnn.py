@@ -11,7 +11,7 @@ class SpatialGNN(nn.Module):
     def __init__(self):
         super().__init__()
         #self.build_loc_ctx_init()
-        #self.build_extract_textual_command()
+        self.build_extract_textual_command()
         self.build_propagate_message()
 
         adj_matrix = build_adjacency_matrix(cfg.W_FEAT, cfg.H_FEAT) # defines neighbors in graph
@@ -19,21 +19,42 @@ class SpatialGNN(nn.Module):
 
 
     def build_propagate_message(self):
-        self.W = ops.Linear(cfg.CTX_DIM, cfg.CTX_DIM, bias=False)
+        self.W = ops.Linear(2*cfg.CTX_DIM, cfg.CTX_DIM)
         self.initKB = ops.Linear(cfg.D_FEAT, cfg.CTX_DIM)
 
-    def forward(self, images, batch_size, entity_num):
+    def forward(self, images, q_encoding, lstm_outputs, batch_size, q_length,
+                entity_num):
         x_loc = self.loc_init(images)
         for t in range(cfg.MSG_ITER_NUM):
-            x_loc_new = self.propagate_message(x_loc)
+            cmd = self.extract_textual_command(
+                    q_encoding, lstm_outputs, q_length, t)
+            x_loc_new = self.propagate_message(x_loc, cmd)
             x_loc = x_loc_new
         x_out = x_loc_new
         return x_out
 
-    def propagate_message(self, x_loc):
-        support = self.W(x_loc)
+    def propagate_message(self, x_loc, cmd):
+        support = self.W(torch.cat([x_loc, cmd], dim=-1))
         x_loc_new = torch.matmul(self.adj, support)
         return x_loc_new
+
+    def build_extract_textual_command(self):
+        self.qInput = ops.Linear(cfg.CMD_DIM, cfg.CMD_DIM)
+        for t in range(cfg.MSG_ITER_NUM):
+            qInput_layer2 = ops.Linear(cfg.CMD_DIM, cfg.CMD_DIM)
+            setattr(self, "qInput%d" % t, qInput_layer2)
+        self.cmd_inter2logits = ops.Linear(cfg.CMD_DIM, 1)
+
+    def extract_textual_command(self, q_encoding, lstm_outputs, q_length, t):
+        qInput_layer2 = getattr(self, "qInput%d" % t)
+        act_fun = ops.activations[cfg.CMD_INPUT_ACT]
+        q_cmd = qInput_layer2(act_fun(self.qInput(q_encoding)))
+        raw_att = self.cmd_inter2logits(
+            q_cmd[:, None, :] * lstm_outputs).squeeze(-1)
+        raw_att = ops.apply_mask1d(raw_att, q_length)
+        att = F.softmax(raw_att, dim=-1)
+        cmd = torch.bmm(att[:, None, :], lstm_outputs).squeeze(1)
+        return cmd
 
     def loc_init(self, images):
         x_loc = self.initKB(images)
